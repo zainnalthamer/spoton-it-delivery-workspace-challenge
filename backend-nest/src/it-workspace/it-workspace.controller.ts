@@ -43,9 +43,18 @@ export class ItWorkspaceController {
   }
 
   @Patch('work-items/:id')
-  updateWorkItem(@Param('id') id: string, @Body() dto: UpdateWorkItemDto) {
-    return this.workspace.updateWorkItem(id, dto);
+  updateWorkItem(
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkItemDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.workspace.updateWorkItem(id, dto, user.name);
   }
+
+  @Get('work-items/:id/history')
+getWorkItemHistory(@Param('id') id: string) {
+  return this.workspace.getWorkItemHistory(id);
+}
 
   @Delete('work-items/:id')
   deleteWorkItem(@Param('id') id: string) {

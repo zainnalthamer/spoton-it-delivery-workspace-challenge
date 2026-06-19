@@ -12,6 +12,15 @@ import {
   TEAM_MEMBERS,
 } from '@/lib/api';
 
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  backlog: ['backlog', 'planned'],
+  planned: ['planned', 'in_progress'],
+  in_progress: ['in_progress', 'qa'],
+  qa: ['qa', 'ready_for_release', 'in_progress'],
+  ready_for_release: ['ready_for_release', 'released', 'qa'],
+  released: ['released'],
+};
+
 export default function WorkItemDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -166,7 +175,7 @@ export default function WorkItemDetailPage() {
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="status">Status</label>
             <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
-              {WORK_ITEM_STATUSES.map((s) => (
+              {(ALLOWED_TRANSITIONS[item?.status ?? 'backlog'] ?? WORK_ITEM_STATUSES).map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>

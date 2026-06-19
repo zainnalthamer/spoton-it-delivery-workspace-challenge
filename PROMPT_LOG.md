@@ -56,7 +56,7 @@ Proposed 6 tables: work_items, qa_checks, releases, release_work_items, work_ite
 Ran the schema against the real Postgres container and checked with \dt that all 6 tables actually got created. Confirmed the app starts clean with "Database schema ensured." and no errors. Decided to skip a real users table — there's only one hardcoded login user in the starter, so assignee/tester/createdBy are just plain text fields for now instead of a proper foreign key relationship. Documented that as a tradeoff.
 
 ### Related Commit
-project initial setup + database schema
+dec5aa5 (origin/main, main) project initial setup + database schema
 
 ## 2026-06-19 14:06 - Claude 
 
@@ -92,4 +92,76 @@ Added CreateWorkItemDto, UpdateWorkItemDto (using PartialType), and QueryWorkIte
 - Caught and verified the status-update bug specifically. 
 
 ### Related Commit
-added Work Items CRUD with validation, auth, and status update fix
+a31be14 added Work Items CRUD with validation, auth, and status update fix
+
+## 2026-06-19 17:44 - Claude 
+
+### Goal
+Build the frontend for Work Items: list with filters, create form, detail/edit page, and delete wired up to the backend CRUD API.
+
+### Prompt
+Help me build the frontend for Work Items on top of the backend we just finished. I shared the existing blank workspace page, the app layout/sidebar, the existing api.ts lib, an existing page (score) to match style/patterns, and globals.css so nothing gets reinvented. I want three pages: a list with search/filters/My Work toggle, a create form, and a combined detail/edit page with delete. Add an assignee filter dropdown.
+
+### Output Summary
+Expanded api.ts with the full WorkItem type, filter/create/update/delete methods, and shared constants for team members, types, priorities, and statuses. Built three pages under /pm/it-workspace: the list page (table view with search, status/priority/assignee filters, My Work toggle, loading/empty/error states), /new (create form), and /[id] (detail page that's also the edit form, plus a delete button with a confirm prompt). Status remains freely editable for now since workflow rules are a later phase. Added the assignee filter dropdown after noticing it was missing from the required filter list.
+
+### Files Changed
+- frontend-next/src/lib/api.ts
+- frontend-next/src/app/pm/it-workspace/page.tsx
+- frontend-next/src/app/pm/it-workspace/new/page.tsx
+- frontend-next/src/app/pm/it-workspace/[id]/page.tsx
+
+### Manual Review
+Tested the full loop manually in the browser: created a work item, saw it appear in the list, opened it, edited fields including status and assignee, saved, confirmed the list reflected changes, deleted it, confirmed it was removed and redirected back to the list. Verified empty state and loading state render correctly. Verified each filter (status, priority, assignee, search, My Work) narrows the list correctly.
+
+### Related Commit
+dac2b3e (HEAD -> work-items, origin/work-items) added Work Items frontend with filters, create, edit, and delete
+
+## 2026-06-19 18:50 - Claude 
+
+### Goal
+
+Implement the work item status workflow on the backend so only valid status transitions are allowed. Support the normal workflow:
+
+backlog → planned → in_progress → qa → ready_for_release → released
+
+while allowing only two backward transitions:
+
+qa → in_progress
+
+ready_for_release → qa
+
+All other transitions should be rejected with a clear error message. Also add status change history tracking and update the frontend so users can only select valid status options.
+
+### Prompt
+
+Reviewed the current it-workspace.service.ts implementation and implemented the workflow rules from the specification. The requirement was to validate all status changes on the backend, record every successful status change in the existing work_item_history table, expose a history endpoint for each work item, and update the frontend status dropdown so it only displays valid next states instead of every possible status.
+
+### Output Summary
+
+- Created a dedicated work-item-transitions.ts file containing the transition rules and helper functions to keep workflow logic separate from the service layer.
+- Updated updateWorkItem() to validate every requested status change before updating the database. Invalid transitions now return a 400 Bad Request response with a clear explanation of why the change is not allowed.
+- Added automatic history logging whenever a status change succeeds, recording the previous status, new status, user who made the change, and timestamp in the work_item_history table.
+- Added a new endpoint: GET /work-items/:id/history to retrieve the complete status history for a work item.
+- Updated the controller so the authenticated user's name is passed through and recorded in history entries.
+- On the frontend, updated the status dropdown to dynamically show only the current status and any valid next transition options. This improves the user experience while keeping the backend as the final authority for validation.
+
+### Files Changed
+
+- backend-nest/src/it-workspace/work-item-transitions.ts
+- backend-nest/src/it-workspace/it-workspace.service.ts
+- backend-nest/src/it-workspace/it-workspace.controller.ts
+- frontend-next/src/app/pm/it-workspace/[id]/page.tsx
+
+### Manual Review
+
+Verified the workflow using manual API testing with curl.
+
+- Confirmed invalid transitions with a clear validation message.
+- Confirmed the full forward workflow path works correctly.
+- Confirmed the allowed backward transition succeeds.
+- Confirmed invalid backward transitions are rejected.
+- Verified that history records correctly store the previous status, new status, user, and timestamp.
+- Confirmed in the browser that the status dropdown only displays valid transition options based on the work item's current state.
+
+### Related Commit
