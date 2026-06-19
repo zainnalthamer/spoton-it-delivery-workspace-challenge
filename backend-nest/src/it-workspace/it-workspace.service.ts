@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import { ScoreService } from '../score/score.service';
 import { generateId } from '../common/id';
 import { isValidTransition } from './work-item-transitions';
+import type { RequestUser } from '../common/request-user';
 import { CreateWorkItemDto } from './dto/create-work-item.dto';
 import { UpdateWorkItemDto } from './dto/update-work-item.dto';
 import { QueryWorkItemsDto } from './dto/query-work-items.dto';
@@ -12,7 +14,10 @@ import { UpdateReleaseDto } from './dto/update-release.dto';
 
 @Injectable()
 export class ItWorkspaceService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly score: ScoreService,
+  ) {}
 
   async summary() {
     const result = await this.db.query(`
@@ -32,14 +37,17 @@ export class ItWorkspaceService {
     };
   }
 
-  async createWorkItem(dto: CreateWorkItemDto, createdBy: string) {
+  async createWorkItem(dto: CreateWorkItemDto, user: RequestUser) {
     const id = generateId('wi');
     const result = await this.db.query(
       `INSERT INTO work_items (id, title, description, type, priority, assignee, due_date, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [id, dto.title, dto.description, dto.type, dto.priority, dto.assignee ?? null, dto.dueDate ?? null, createdBy],
+      [id, dto.title, dto.description, dto.type, dto.priority, dto.assignee ?? null, dto.dueDate ?? null, user.name],
     );
+
+    await this.score.awardForEntity(user.id, 'create_work_item', 'work_item', id, 1);
+
     return result.rows[0];
   }
 
@@ -94,7 +102,7 @@ export class ItWorkspaceService {
     return { ready: total > 0 && passed === total, total, passed };
   }
 
-  async updateWorkItem(id: string, dto: UpdateWorkItemDto, changedBy: string) {
+  async updateWorkItem(id: string, dto: UpdateWorkItemDto, user: RequestUser) {
     const current = await this.getWorkItem(id);
 
     if (dto.status !== undefined && dto.status !== current.status) {
@@ -153,8 +161,15 @@ export class ItWorkspaceService {
       await this.db.query(
         `INSERT INTO work_item_history (id, work_item_id, from_status, to_status, changed_by)
          VALUES ($1, $2, $3, $4, $5)`,
-        [generateId('wih'), id, current.status, dto.status, changedBy],
+        [generateId('wih'), id, current.status, dto.status, user.name],
       );
+
+      if (dto.status === 'qa') {
+        await this.score.awardForEntity(user.id, 'move_to_qa', 'work_item', id, 1);
+      }
+      if (dto.status === 'ready_for_release') {
+        await this.score.awardForEntity(user.id, 'ready_for_release', 'work_item', id, 2);
+      }
     }
 
     return updated;
@@ -175,8 +190,10 @@ export class ItWorkspaceService {
     return { deleted: true, id };
   }
 
+  // ---- QA Checks ----
+
   async createQaCheck(workItemId: string, dto: CreateQaCheckDto) {
-    await this.getWorkItem(workItemId); // 404 if work item missing
+    await this.getWorkItem(workItemId);
     const id = generateId('qa');
     const result = await this.db.query(
       `INSERT INTO qa_checks (id, work_item_id, test_title, expected_result, tester)
@@ -204,8 +221,8 @@ export class ItWorkspaceService {
     return result.rows[0];
   }
 
-  async updateQaCheck(id: string, dto: UpdateQaCheckDto) {
-    await this.getQaCheck(id);
+  async updateQaCheck(id: string, dto: UpdateQaCheckDto, user: RequestUser) {
+    const current = await this.getQaCheck(id);
 
     const fields: string[] = [];
     const params: any[] = [];
@@ -227,7 +244,7 @@ export class ItWorkspaceService {
     }
 
     if (fields.length === 0) {
-      return this.getQaCheck(id);
+      return current;
     }
 
     fields.push(`updated_at = now()`);
@@ -237,7 +254,13 @@ export class ItWorkspaceService {
       `UPDATE qa_checks SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
       params,
     );
-    return result.rows[0];
+    const updated = result.rows[0];
+
+    if (dto.status === 'passed' && current.status !== 'passed') {
+      await this.score.awardForEntity(user.id, 'complete_qa_check', 'qa_check', id, 1);
+    }
+
+    return updated;
   }
 
   async deleteQaCheck(id: string) {
@@ -246,15 +269,24 @@ export class ItWorkspaceService {
     return { deleted: true, id };
   }
 
+  // ---- Releases ----
+
   async createRelease(dto: CreateReleaseDto) {
     const id = generateId('rel');
-    const result = await this.db.query(
-      `INSERT INTO releases (id, version, release_date, summary)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [id, dto.version, dto.releaseDate ?? null, dto.summary ?? null],
-    );
-    return result.rows[0];
+    try {
+      const result = await this.db.query(
+        `INSERT INTO releases (id, version, release_date, summary)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [id, dto.version, dto.releaseDate ?? null, dto.summary ?? null],
+      );
+      return result.rows[0];
+    } catch (err: any) {
+      if (err.code === '23505') {
+        throw new BadRequestException(`A release with version '${dto.version}' already exists`);
+      }
+      throw err;
+    }
   }
 
   async listReleases() {
@@ -335,7 +367,7 @@ export class ItWorkspaceService {
     return this.getRelease(releaseId);
   }
 
-  async deployRelease(id: string, deployedBy: string) {
+  async deployRelease(id: string, user: RequestUser) {
     const release = await this.getRelease(id);
 
     if (release.deployment_status === 'deployed') {
@@ -359,9 +391,11 @@ export class ItWorkspaceService {
       await this.db.query(
         `INSERT INTO work_item_history (id, work_item_id, from_status, to_status, changed_by)
          VALUES ($1, $2, $3, $4, $5)`,
-        [generateId('wih'), item.id, item.status, 'released', deployedBy],
+        [generateId('wih'), item.id, item.status, 'released', user.name],
       );
     }
+
+    await this.score.awardForEntity(user.id, 'deploy_release', 'release', id, 3);
 
     return this.getRelease(id);
   }
