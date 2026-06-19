@@ -16,6 +16,8 @@ import { ItWorkspaceService } from './it-workspace.service';
 import { CreateWorkItemDto } from './dto/create-work-item.dto';
 import { UpdateWorkItemDto } from './dto/update-work-item.dto';
 import { QueryWorkItemsDto } from './dto/query-work-items.dto';
+import { CreateQaCheckDto } from './dto/create-qa-check.dto';
+import { UpdateQaCheckDto } from './dto/update-qa-check.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('it-workspace')
@@ -52,12 +54,32 @@ export class ItWorkspaceController {
   }
 
   @Get('work-items/:id/history')
-getWorkItemHistory(@Param('id') id: string) {
-  return this.workspace.getWorkItemHistory(id);
-}
+  getWorkItemHistory(@Param('id') id: string) {
+    return this.workspace.getWorkItemHistory(id);
+  }
 
   @Delete('work-items/:id')
   deleteWorkItem(@Param('id') id: string) {
     return this.workspace.deleteWorkItem(id);
   }
+
+  @Post('work-items/:id/qa-checks')
+createQaCheck(@Param('id') id: string, @Body() dto: CreateQaCheckDto) {
+  return this.workspace.createQaCheck(id, dto);
+}
+
+@Get('work-items/:id/qa-checks')
+listQaChecks(@Param('id') id: string) {
+  return this.workspace.listQaChecks(id);
+}
+
+@Patch('qa-checks/:id')
+updateQaCheck(@Param('id') id: string, @Body() dto: UpdateQaCheckDto) {
+  return this.workspace.updateQaCheck(id, dto);
+}
+
+@Delete('qa-checks/:id')
+deleteQaCheck(@Param('id') id: string) {
+  return this.workspace.deleteQaCheck(id);
+}
 }
