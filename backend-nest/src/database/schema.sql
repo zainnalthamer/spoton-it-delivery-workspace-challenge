@@ -61,3 +61,14 @@ CREATE TABLE IF NOT EXISTS score_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (action, entity_type, entity_id)
 );
+
+CREATE TABLE IF NOT EXISTS qa_check_history (
+  id TEXT PRIMARY KEY,
+  qa_check_id TEXT NOT NULL REFERENCES qa_checks(id) ON DELETE CASCADE,
+  work_item_id TEXT NOT NULL REFERENCES work_items(id) ON DELETE CASCADE,
+  test_title TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT NOT NULL,
+  changed_by TEXT,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
