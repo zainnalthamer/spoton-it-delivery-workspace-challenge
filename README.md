@@ -8,6 +8,10 @@
 ![Database](https://img.shields.io/badge/database-PostgreSQL-336791)
 ![AI](https://img.shields.io/badge/AI%20usage-disclose%20prompts-6f42c1)
 
+## Demo Video
+
+📹 [Watch the demo video](https://drive.google.com/drive/folders/1oC8uOL6fIvMNxQcJ4MH-ix35k28hZSWJ?usp=drive_link)
+
 ## Implementation Status
 
 All 5 levels were completed, plus one creative feature.
@@ -502,7 +506,7 @@ Submit a GitHub repository link or pull request link.
 Your submission should include:
 
 - [x] working setup instructions
-- [ ] short demo video, 3-5 minutes
+- [x] short demo video, 3-5 minutes
 - [x] `AI_USAGE.md`
 - [x] `PROMPT_LOG.md`
 - [x] `DECISIONS.md`
@@ -522,6 +526,8 @@ In your demo, show:
 6. Show score behavior if implemented.
 7. Show your creative feature if implemented.
 8. Mention what you would improve next.
+
+📹 See the [Demo Video](#demo-video) section at the top of this README for the recording.
 
 ## What We Value
 
