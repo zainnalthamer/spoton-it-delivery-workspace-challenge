@@ -18,6 +18,8 @@ import { UpdateWorkItemDto } from './dto/update-work-item.dto';
 import { QueryWorkItemsDto } from './dto/query-work-items.dto';
 import { CreateQaCheckDto } from './dto/create-qa-check.dto';
 import { UpdateQaCheckDto } from './dto/update-qa-check.dto';
+import { CreateReleaseDto } from './dto/create-release.dto';
+import { UpdateReleaseDto } from './dto/update-release.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('it-workspace')
@@ -81,5 +83,40 @@ updateQaCheck(@Param('id') id: string, @Body() dto: UpdateQaCheckDto) {
 @Delete('qa-checks/:id')
 deleteQaCheck(@Param('id') id: string) {
   return this.workspace.deleteQaCheck(id);
+}
+
+@Post('releases')
+createRelease(@Body() dto: CreateReleaseDto) {
+  return this.workspace.createRelease(dto);
+}
+
+@Get('releases')
+listReleases() {
+  return this.workspace.listReleases();
+}
+
+@Get('releases/:id')
+getRelease(@Param('id') id: string) {
+  return this.workspace.getRelease(id);
+}
+
+@Patch('releases/:id')
+updateRelease(@Param('id') id: string, @Body() dto: UpdateReleaseDto) {
+  return this.workspace.updateRelease(id, dto);
+}
+
+@Post('releases/:id/link/:workItemId')
+linkWorkItem(@Param('id') id: string, @Param('workItemId') workItemId: string) {
+  return this.workspace.linkWorkItem(id, workItemId);
+}
+
+@Delete('releases/:id/link/:workItemId')
+unlinkWorkItem(@Param('id') id: string, @Param('workItemId') workItemId: string) {
+  return this.workspace.unlinkWorkItem(id, workItemId);
+}
+
+@Post('releases/:id/deploy')
+deployRelease(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  return this.workspace.deployRelease(id, user.name);
 }
 }

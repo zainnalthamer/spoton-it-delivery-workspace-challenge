@@ -208,3 +208,49 @@ Implement QA Checks CRUD linked to work items and enforce the business rule that
 - Confirmed that backend validation messages are displayed correctly in the UI when release requirements have not been met.
 
 ### Related Commit
+27e313e (HEAD -> qa-checks, origin/qa-checks) dded QA checks with realese-readiness gate
+
+## 2026-06-19 08:25 - Claude 
+
+### Goal
+
+Implement Releases CRUD along with release linking and deployment workflows. Enforce the following business rules:
+
+- Only work items in ready_for_release can be linked to a release.
+- Deploying a release automatically updates all linked work items to released'.
+- A release can only be deployed once.
+
+### Prompt
+
+- Built the backend support for Release Notes on top of the existing work item and QA functionality. The requirement included full CRUD operations for releases, endpoints to link and unlink work items, and a deployment endpoint.
+- The deployment workflow needed to enforce several business rules: work items must already be ready_for_release before they can be linked, deployed releases must reject any further modifications, deploying a release should automatically move all linked work items to released, and attempting to deploy the same release twice should return an error rather than succeeding silently.
+
+### Output Summary
+
+- Added DTOs for creating and updating releases.
+- Extended the workspace service with release management functionality, including creating, listing, retrieving, updating, and managing linked work items.
+- Implemented release detail retrieval with linked work items loaded through a join query, allowing release information and associated work items to be returned together.
+- Added link and unlink operations with validation rules to ensure only work items in the ready_for_release state can be linked and that deployed releases can no longer be modified.
+- Implemented a dedicated deployment workflow. Before deployment, the service validates that the release has not already been deployed and contains at least one linked work item. Once deployed, the release status is updated and all linked work items are automatically moved to released. A history entry is also recorded for each work item affected by the deployment.
+- Added matching controller routes for release management, linking and unlinking work items, and deploying releases.
+
+### Files Changed
+
+- backend-nest/src/it-workspace/dto/create-release.dto.ts
+- backend-nest/src/it-workspace/dto/update-release.dto.ts
+- backend-nest/src/it-workspace/it-workspace.service.ts
+- backend-nest/src/it-workspace/it-workspace.controller.ts
+
+### Manual Review
+
+Tested the complete release workflow using curl.
+
+- Created a release successfully.
+- Confirmed that linking a work item that was still in backlog was rejected with a clear validation message.
+- Successfully linked a work item that was in ready_for_release.
+- Verified that the release details endpoint returned the linked work item information.
+- Deployed the release and confirmed that both the release status and all linked work item statuses updated correctly.
+- Confirmed that attempting to deploy the same release again returns an error.
+- Confirmed that linking additional work items to an already deployed release is rejected.
+
+### Related Commit
