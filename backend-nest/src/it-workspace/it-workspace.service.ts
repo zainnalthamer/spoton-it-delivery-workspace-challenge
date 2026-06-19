@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { generateId } from '../common/id';
+import { isValidTransition } from './work-item-transitions';
 import { CreateWorkItemDto } from './dto/create-work-item.dto';
 import { UpdateWorkItemDto } from './dto/update-work-item.dto';
 import { QueryWorkItemsDto } from './dto/query-work-items.dto';
@@ -79,8 +80,17 @@ export class ItWorkspaceService {
     return result.rows[0];
   }
 
-  async updateWorkItem(id: string, dto: UpdateWorkItemDto) {
-    await this.getWorkItem(id); 
+  async updateWorkItem(id: string, dto: UpdateWorkItemDto, changedBy: string) {
+    const current = await this.getWorkItem(id);
+
+    // Validate status transition before touching anything
+    if (dto.status !== undefined && dto.status !== current.status) {
+      if (!isValidTransition(current.status, dto.status)) {
+        throw new BadRequestException(
+          `Cannot transition work item from '${current.status}' to '${dto.status}'`,
+        );
+      }
+    }
 
     const fields: string[] = [];
     const params: any[] = [];
@@ -103,7 +113,7 @@ export class ItWorkspaceService {
     }
 
     if (fields.length === 0) {
-      return this.getWorkItem(id);
+      return current;
     }
 
     fields.push(`updated_at = now()`);
@@ -113,11 +123,31 @@ export class ItWorkspaceService {
       `UPDATE work_items SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
       params,
     );
-    return result.rows[0];
+    const updated = result.rows[0];
+
+    // Log status change to history, only if status actually changed
+    if (dto.status !== undefined && dto.status !== current.status) {
+      await this.db.query(
+        `INSERT INTO work_item_history (id, work_item_id, from_status, to_status, changed_by)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [generateId('wih'), id, current.status, dto.status, changedBy],
+      );
+    }
+
+    return updated;
+  }
+
+  async getWorkItemHistory(id: string) {
+    await this.getWorkItem(id); // throws 404 if missing
+    const result = await this.db.query(
+      `SELECT * FROM work_item_history WHERE work_item_id = $1 ORDER BY changed_at ASC`,
+      [id],
+    );
+    return result.rows;
   }
 
   async deleteWorkItem(id: string) {
-    await this.getWorkItem(id); 
+    await this.getWorkItem(id);
     await this.db.query('DELETE FROM work_items WHERE id = $1', [id]);
     return { deleted: true, id };
   }
