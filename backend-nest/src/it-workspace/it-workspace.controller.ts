@@ -32,9 +32,9 @@ export class ItWorkspaceController {
   }
 
   @Post('work-items')
-  createWorkItem(@Body() dto: CreateWorkItemDto, @CurrentUser() user: RequestUser) {
-    return this.workspace.createWorkItem(dto, user.name);
-  }
+createWorkItem(@Body() dto: CreateWorkItemDto, @CurrentUser() user: RequestUser) {
+  return this.workspace.createWorkItem(dto, user);
+}
 
   @Get('work-items')
   listWorkItems(@Query() query: QueryWorkItemsDto, @CurrentUser() user: RequestUser) {
@@ -46,14 +46,14 @@ export class ItWorkspaceController {
     return this.workspace.getWorkItem(id);
   }
 
-  @Patch('work-items/:id')
-  updateWorkItem(
-    @Param('id') id: string,
-    @Body() dto: UpdateWorkItemDto,
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.workspace.updateWorkItem(id, dto, user.name);
-  }
+@Patch('work-items/:id')
+updateWorkItem(
+  @Param('id') id: string,
+  @Body() dto: UpdateWorkItemDto,
+  @CurrentUser() user: RequestUser,
+) {
+  return this.workspace.updateWorkItem(id, dto, user);
+}
 
   @Get('work-items/:id/history')
   getWorkItemHistory(@Param('id') id: string) {
@@ -76,8 +76,12 @@ listQaChecks(@Param('id') id: string) {
 }
 
 @Patch('qa-checks/:id')
-updateQaCheck(@Param('id') id: string, @Body() dto: UpdateQaCheckDto) {
-  return this.workspace.updateQaCheck(id, dto);
+updateQaCheck(
+  @Param('id') id: string,
+  @Body() dto: UpdateQaCheckDto,
+  @CurrentUser() user: RequestUser,
+) {
+  return this.workspace.updateQaCheck(id, dto, user);
 }
 
 @Delete('qa-checks/:id')
@@ -117,6 +121,6 @@ unlinkWorkItem(@Param('id') id: string, @Param('workItemId') workItemId: string)
 
 @Post('releases/:id/deploy')
 deployRelease(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-  return this.workspace.deployRelease(id, user.name);
+  return this.workspace.deployRelease(id, user);
 }
 }
