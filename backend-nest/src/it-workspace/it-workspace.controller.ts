@@ -123,4 +123,9 @@ unlinkWorkItem(@Param('id') id: string, @Param('workItemId') workItemId: string)
 deployRelease(@Param('id') id: string, @CurrentUser() user: RequestUser) {
   return this.workspace.deployRelease(id, user);
 }
+
+@Get('work-items/:id/timeline')
+getWorkItemTimeline(@Param('id') id: string) {
+  return this.workspace.getWorkItemTimeline(id);
+}
 }

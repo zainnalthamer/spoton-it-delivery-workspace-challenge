@@ -184,6 +184,67 @@ export class ItWorkspaceService {
     return result.rows;
   }
 
+  async getWorkItemTimeline(id: string) {
+  await this.getWorkItem(id);
+
+  const historyResult = await this.db.query(
+    `SELECT from_status, to_status, changed_by, changed_at
+     FROM work_item_history WHERE work_item_id = $1`,
+    [id],
+  );
+
+  const qaCreatedResult = await this.db.query(
+    `SELECT id, test_title, tester, created_at FROM qa_checks WHERE work_item_id = $1`,
+    [id],
+  );
+
+  const qaHistoryResult = await this.db.query(
+    `SELECT test_title, from_status, to_status, changed_by, changed_at
+     FROM qa_check_history WHERE work_item_id = $1`,
+    [id],
+  );
+
+  type TimelineEvent = {
+    type: 'status_change' | 'qa_added' | 'qa_status_change';
+    label: string;
+    actor: string | null;
+    timestamp: string;
+  };
+
+  const events: TimelineEvent[] = [];
+
+  for (const row of historyResult.rows) {
+    events.push({
+      type: 'status_change',
+      label: `Status changed: ${row.from_status} → ${row.to_status}`,
+      actor: row.changed_by,
+      timestamp: row.changed_at,
+    });
+  }
+
+  for (const qa of qaCreatedResult.rows) {
+    events.push({
+      type: 'qa_added',
+      label: `QA check added: "${qa.test_title}"`,
+      actor: qa.tester,
+      timestamp: qa.created_at,
+    });
+  }
+
+  for (const row of qaHistoryResult.rows) {
+    events.push({
+      type: 'qa_status_change',
+      label: `QA "${row.test_title}": ${row.from_status ?? 'new'} → ${row.to_status}`,
+      actor: row.changed_by,
+      timestamp: row.changed_at,
+    });
+  }
+
+  events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  return events;
+}
+
   async deleteWorkItem(id: string) {
     await this.getWorkItem(id);
     await this.db.query('DELETE FROM work_items WHERE id = $1', [id]);
@@ -222,46 +283,54 @@ export class ItWorkspaceService {
   }
 
   async updateQaCheck(id: string, dto: UpdateQaCheckDto, user: RequestUser) {
-    const current = await this.getQaCheck(id);
+  const current = await this.getQaCheck(id);
 
-    const fields: string[] = [];
-    const params: any[] = [];
+  const fields: string[] = [];
+  const params: any[] = [];
 
-    const fieldMap: Record<string, any> = {
-      test_title: dto.testTitle,
-      expected_result: dto.expectedResult,
-      actual_result: dto.actualResult,
-      status: dto.status,
-      tester: dto.tester,
-      notes: dto.notes,
-    };
+  const fieldMap: Record<string, any> = {
+    test_title: dto.testTitle,
+    expected_result: dto.expectedResult,
+    actual_result: dto.actualResult,
+    status: dto.status,
+    tester: dto.tester,
+    notes: dto.notes,
+  };
 
-    for (const [column, value] of Object.entries(fieldMap)) {
-      if (value !== undefined) {
-        params.push(value);
-        fields.push(`${column} = $${params.length}`);
-      }
+  for (const [column, value] of Object.entries(fieldMap)) {
+    if (value !== undefined) {
+      params.push(value);
+      fields.push(`${column} = $${params.length}`);
     }
-
-    if (fields.length === 0) {
-      return current;
-    }
-
-    fields.push(`updated_at = now()`);
-    params.push(id);
-
-    const result = await this.db.query(
-      `UPDATE qa_checks SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
-      params,
-    );
-    const updated = result.rows[0];
-
-    if (dto.status === 'passed' && current.status !== 'passed') {
-      await this.score.awardForEntity(user.id, 'complete_qa_check', 'qa_check', id, 1);
-    }
-
-    return updated;
   }
+
+  if (fields.length === 0) {
+    return current;
+  }
+
+  fields.push(`updated_at = now()`);
+  params.push(id);
+
+  const result = await this.db.query(
+    `UPDATE qa_checks SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
+    params,
+  );
+  const updated = result.rows[0];
+
+  if (dto.status !== undefined && dto.status !== current.status) {
+    await this.db.query(
+      `INSERT INTO qa_check_history (id, qa_check_id, work_item_id, test_title, from_status, to_status, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [generateId('qah'), id, current.work_item_id, updated.test_title, current.status, dto.status, user.name],
+    );
+  }
+
+  if (dto.status === 'passed' && current.status !== 'passed') {
+    await this.score.awardForEntity(user.id, 'complete_qa_check', 'qa_check', id, 1);
+  }
+
+  return updated;
+}
 
   async deleteQaCheck(id: string) {
     await this.getQaCheck(id);

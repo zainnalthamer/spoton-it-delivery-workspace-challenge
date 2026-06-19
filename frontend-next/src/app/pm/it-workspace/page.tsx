@@ -129,34 +129,36 @@ export default function ItWorkspacePage() {
 
       {!loading && !error && items && items.length > 0 && (
         <div className="card">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Priority</th>
-                <th>Assignee</th>
-                <th>Due Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <Link href={`/pm/it-workspace/${item.id}`}>{item.title}</Link>
-                  </td>
-                  <td>{item.type}</td>
-                  <td>
-                    <span className="badge">{item.status}</span>
-                  </td>
-                  <td>{item.priority}</td>
-                  <td>{item.assignee ?? '—'}</td>
-                  <td>{item.due_date ? new Date(item.due_date).toLocaleDateString() : '—'}</td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Assignee</th>
+                  <th>Due Date</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <Link href={`/pm/it-workspace/${item.id}`}>{item.title}</Link>
+                    </td>
+                    <td>{item.type}</td>
+                    <td>
+                      <span className="badge">{item.status}</span>
+                    </td>
+                    <td>{item.priority}</td>
+                    <td>{item.assignee ?? '—'}</td>
+                    <td>{item.due_date ? new Date(item.due_date).toLocaleDateString() : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>

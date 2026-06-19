@@ -7,6 +7,7 @@ import {
   api,
   WorkItem,
   QaCheck,
+  TimelineEvent,
   WORK_ITEM_TYPES,
   WORK_ITEM_PRIORITIES,
   WORK_ITEM_STATUSES,
@@ -40,6 +41,9 @@ export default function WorkItemDetailPage() {
   const [newExpectedResult, setNewExpectedResult] = useState('');
   const [addingQa, setAddingQa] = useState(false);
 
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(true);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('');
@@ -70,6 +74,13 @@ export default function WorkItemDetailPage() {
   useEffect(() => {
     load();
     loadQaChecks();
+    setTimelineLoading(true);
+    api
+      .workItemTimeline(id)
+      .then(setTimeline)
+      .catch(() => {})
+      .finally(() => setTimelineLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   function loadQaChecks() {
@@ -209,7 +220,7 @@ export default function WorkItemDetailPage() {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div className="stack-row">
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="type">Type</label>
             <select id="type" value={type} onChange={(e) => setType(e.target.value)}>
@@ -238,7 +249,7 @@ export default function WorkItemDetailPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div className="stack-row">
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="assignee">Assignee</label>
             <select id="assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
@@ -255,7 +266,7 @@ export default function WorkItemDetailPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="button" type="submit" disabled={saving}>
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
@@ -379,6 +390,35 @@ export default function WorkItemDetailPage() {
             </button>
           </div>
         </form>
+      </section>
+
+      <section className="card" style={{ marginTop: 20, display: 'grid', gap: 12, maxWidth: 760 }}>
+        <h2 style={{ margin: 0 }}>Engineering Timeline</h2>
+        {timelineLoading && <p style={{ margin: 0 }}>Loading timeline...</p>}
+
+        {!timelineLoading && timeline.length === 0 && <p style={{ margin: 0, color: 'var(--muted)' }}>No activity yet.</p>}
+
+        {!timelineLoading && timeline.length > 0 && (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {timeline.map((event, i) => (
+              <div
+                key={`${event.timestamp}-${i}`}
+                style={{
+                  border: '1px solid var(--line)',
+                  borderRadius: 10,
+                  padding: 12,
+                  display: 'grid',
+                  gap: 4,
+                }}
+              >
+                <strong>{event.label}</strong>
+                <p style={{ margin: 0, color: 'var(--muted)' }}>
+                  {event.actor ?? 'Unknown'} • {new Date(event.timestamp).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </section>
   );

@@ -8,6 +8,31 @@
 ![Database](https://img.shields.io/badge/database-PostgreSQL-336791)
 ![AI](https://img.shields.io/badge/AI%20usage-disclose%20prompts-6f42c1)
 
+## Implementation Status
+
+All 5 levels were completed, plus one creative feature.
+
+| Level | Status |
+| --- | --- |
+| 1 — Core Work Items | ✅ Complete |
+| 2 — Workflow and Ownership | ✅ Complete |
+| 3 — QA Checks | ✅ Complete |
+| 4 — Release Notes | ✅ Complete |
+| 5 — Score, Tests, Polish | ✅ Complete |
+| Creative Feature | ✅ Engineering Timeline |
+
+See `DECISIONS.md` for full design rationale, `AI_USAGE.md` for how AI tools were used, and `PROMPT_LOG.md` for the detailed build log.
+
+## Setup Notes (What Changed From the Starter)
+
+The starter had no ORM and no `.env`-loading mechanism configured. The following was added to make the project runnable end to end:
+
+- **`.env` is required.** Copy `.env.example` to `.env` at the **repo root** before starting the API — the database connection string, JWT secret, and frontend API base URL are all read from there. The backend loads it via `dotenv` (added as a dependency).
+- **No manual migration step needed.** The full database schema is defined in `backend-nest/src/database/schema.sql` and is applied automatically and idempotently (`CREATE TABLE IF NOT EXISTS`) every time the API starts — so `npm run dev:api` alone is enough to get a fully migrated database, no separate migration command required.
+- **Postgres must be running first** (via `docker compose up -d postgres`) before starting the API, since schema application happens on API startup.
+
+If you're on Windows, avoid running this project from inside a OneDrive-synced folder — it can cause the TypeScript build output to silently fail to write. Use a plain local path instead.
+
 ## Table of Contents
 
 - [At a Glance](#at-a-glance)
@@ -113,17 +138,27 @@ The IT Workspace route is deliberately minimal. Use it as your canvas. You may d
 npm run install:all
 ```
 
-### 2. Start PostgreSQL
+### 2. Set up environment variables
+
+Copy the example env file at the repo root:
+
+```bash
+cp .env.example .env
+```
+
+### 3. Start PostgreSQL
 
 ```bash
 docker compose up -d postgres
 ```
 
-### 3. Start The API
+### 4. Start The API
 
 ```bash
 npm run dev:api
 ```
+
+The database schema is created automatically on startup — no separate migration step is needed. Look for `Database schema ensured.` in the terminal output to confirm it worked.
 
 API URL:
 
@@ -131,7 +166,7 @@ API URL:
 http://localhost:3001
 ```
 
-### 4. Start The Web App
+### 5. Start The Web App
 
 Open another terminal:
 
@@ -145,11 +180,18 @@ Web URL:
 http://localhost:3000
 ```
 
-### 5. Login
+### 6. Login
 
 ```txt
 Email: intern@spoton.test
 Password: intern123
+```
+
+### 7. Run Tests (optional)
+
+```bash
+cd backend-nest
+npm test
 ```
 
 ## Existing Project Map
@@ -308,6 +350,8 @@ Choose one or invent your own:
 | AI-Ready Brief | Generate a concise implementation brief from item details and QA notes |
 | Post-Release Review | Capture what shipped, what failed, and follow-up tasks |
 
+**Implemented:** Engineering Timeline — a unified, chronological feed on each work item's detail page combining status changes and QA check activity, showing exactly how the item progressed from creation to release.
+
 ## Score System
 
 The starter has a basic score API/page. Extend it in a meaningful way.
@@ -327,6 +371,8 @@ Important rule:
 - Prevent duplicate points for the same action on the same entity.
 
 Example: clicking deploy twice should not award deploy points twice.
+
+**Implemented:** all 5 events above, with idempotency enforced via a `UNIQUE (action, entity_type, entity_id)` database constraint on `score_events`.
 
 ## Codebase Investigation
 
@@ -455,14 +501,14 @@ Submit a GitHub repository link or pull request link.
 
 Your submission should include:
 
-- [ ] working setup instructions
+- [x] working setup instructions
 - [ ] short demo video, 3-5 minutes
-- [ ] `AI_USAGE.md`
-- [ ] `PROMPT_LOG.md`
-- [ ] `DECISIONS.md`
-- [ ] tests added and commands run
-- [ ] known limitations or unfinished levels
-- [ ] no committed secrets
+- [x] `AI_USAGE.md`
+- [x] `PROMPT_LOG.md`
+- [x] `DECISIONS.md`
+- [x] tests added and commands run
+- [x] known limitations or unfinished levels
+- [x] no committed secrets
 
 ## Demo Video Guide
 

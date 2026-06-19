@@ -95,6 +95,13 @@ export type CreateReleaseInput = {
   summary?: string;
 };
 
+export type TimelineEvent = {
+  type: 'status_change' | 'qa_added' | 'qa_status_change';
+  label: string;
+  actor: string | null;
+  timestamp: string;
+};
+
 export function getToken() {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem('spoton_challenge_token');
@@ -179,6 +186,8 @@ export const api = {
     request<{ deleted: boolean; id: string }>(`/it-workspace/qa-checks/${id}`, {
       method: 'DELETE',
     }),
+  workItemTimeline: (workItemId: string) =>
+    request<TimelineEvent[]>(`/it-workspace/work-items/${workItemId}/timeline`),
   releases: () => request<Release[]>('/it-workspace/releases'),
   release: (id: string) => request<Release>(`/it-workspace/releases/${id}`),
   createRelease: (input: CreateReleaseInput) =>
