@@ -18,8 +18,36 @@ export type WorkspaceSummary = {
 export type WorkItem = {
   id: string;
   title: string;
+  description: string;
+  type: string;
   status: string;
   priority: string;
+  assignee: string | null;
+  due_date: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkItemFilters = {
+  status?: string;
+  priority?: string;
+  assignee?: string;
+  search?: string;
+  mine?: boolean;
+};
+
+export type CreateWorkItemInput = {
+  title: string;
+  description: string;
+  type: string;
+  priority: string;
+  assignee?: string;
+  dueDate?: string;
+};
+
+export type UpdateWorkItemInput = Partial<CreateWorkItemInput> & {
+  status?: string;
 };
 
 export function getToken() {
@@ -45,10 +73,21 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(data?.message ?? 'Request failed');
+    const message = Array.isArray(data?.message) ? data.message.join(', ') : data?.message;
+    throw new Error(message ?? 'Request failed');
   }
-
   return data as T;
+}
+
+function buildQuery(filters: WorkItemFilters): string {
+  const params = new URLSearchParams();
+  if (filters.status) params.set('status', filters.status);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.assignee) params.set('assignee', filters.assignee);
+  if (filters.search) params.set('search', filters.search);
+  if (filters.mine) params.set('mine', 'true');
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
 }
 
 export const api = {
@@ -60,5 +99,27 @@ export const api = {
   me: () => request<LoginResponse['user']>('/auth/me'),
   score: () => request<ScoreSummary>('/score/me'),
   workspaceSummary: () => request<WorkspaceSummary>('/it-workspace/summary'),
-  workItems: () => request<WorkItem[]>('/it-workspace/work-items'),
+
+  workItems: (filters: WorkItemFilters = {}) =>
+    request<WorkItem[]>(`/it-workspace/work-items${buildQuery(filters)}`),
+  workItem: (id: string) => request<WorkItem>(`/it-workspace/work-items/${id}`),
+  createWorkItem: (input: CreateWorkItemInput) =>
+    request<WorkItem>('/it-workspace/work-items', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateWorkItem: (id: string, input: UpdateWorkItemInput) =>
+    request<WorkItem>(`/it-workspace/work-items/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  deleteWorkItem: (id: string) =>
+    request<{ deleted: boolean; id: string }>(`/it-workspace/work-items/${id}`, {
+      method: 'DELETE',
+    }),
 };
+
+export const TEAM_MEMBERS = ['Intern Candidate', 'Alex Rivera', 'Sam Okafor', 'Priya Nair'];
+export const WORK_ITEM_TYPES = ['feature', 'bug', 'improvement', 'maintenance'];
+export const WORK_ITEM_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+export const WORK_ITEM_STATUSES = ['backlog', 'planned', 'in_progress', 'qa', 'ready_for_release', 'released'];
