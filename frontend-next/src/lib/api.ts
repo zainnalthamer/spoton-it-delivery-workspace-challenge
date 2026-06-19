@@ -78,6 +78,23 @@ export type UpdateWorkItemInput = Partial<CreateWorkItemInput> & {
   status?: string;
 };
 
+export type Release = {
+  id: string;
+  version: string;
+  release_date: string | null;
+  summary: string | null;
+  deployment_status: string;
+  created_at: string;
+  updated_at: string;
+  linkedWorkItems?: WorkItem[];
+};
+
+export type CreateReleaseInput = {
+  version: string;
+  releaseDate?: string;
+  summary?: string;
+};
+
 export function getToken() {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem('spoton_challenge_token');
@@ -162,6 +179,19 @@ export const api = {
     request<{ deleted: boolean; id: string }>(`/it-workspace/qa-checks/${id}`, {
       method: 'DELETE',
     }),
+  releases: () => request<Release[]>('/it-workspace/releases'),
+  release: (id: string) => request<Release>(`/it-workspace/releases/${id}`),
+  createRelease: (input: CreateReleaseInput) =>
+    request<Release>('/it-workspace/releases', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  linkWorkItem: (releaseId: string, workItemId: string) =>
+    request<Release>(`/it-workspace/releases/${releaseId}/link/${workItemId}`, { method: 'POST' }),
+  unlinkWorkItem: (releaseId: string, workItemId: string) =>
+    request<Release>(`/it-workspace/releases/${releaseId}/link/${workItemId}`, { method: 'DELETE' }),
+  deployRelease: (releaseId: string) =>
+    request<Release>(`/it-workspace/releases/${releaseId}/deploy`, { method: 'POST' }),
 };
 
 export const TEAM_MEMBERS = ['Intern Candidate', 'Alex Rivera', 'Sam Okafor', 'Priya Nair'];

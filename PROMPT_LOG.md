@@ -254,3 +254,79 @@ Tested the complete release workflow using curl.
 - Confirmed that linking additional work items to an already deployed release is rejected.
 
 ### Related Commit
+3862f6e (HEAD -> release-notes, origin/release-notes) added releases CRUD with rules
+
+## 2026-06-19 08:57 - Claude 
+
+### Goal
+
+Build the Releases frontend, including a releases list page, release creation form, and release details page with linking, unlinking, and deployment functionality. Also fix a bug where creating a release with an existing version number caused an unhandled server error instead of returning a user-friendly validation message.
+
+### Prompt
+
+Implemented the Releases frontend following the same patterns already established for Work Items. The requirement was to provide:
+
+- A releases list page
+- A release creation page
+- A release details page
+- Linking and unlinking work items
+- Release deployment functionality
+- Navigation access from the main PM area
+
+While testing the feature, creating a release sometimes resulted in a generic Internal Server Error. I investigated the issue and identified the cause in the backend.
+
+### Output Summary
+
+Added release-related types and API methods to the frontend API layer.
+
+Built the following pages:
+
+- /pm/releases
+  - Displays all releases with status badges
+  - Provides navigation to release details
+
+- /pm/releases/new
+  - Release creation form
+  - Supports entering release information and creating new releases
+
+- /pm/releases/[id]
+  - Release status banner
+  - Deploy button
+  - What Shipped section showing linked work items
+  - Ability to unlink work items
+  - Dropdown for linking eligible work items currently in ready_for_release status
+
+Added a Releases navigation link to the PM layout so the feature is accessible throughout the application.
+
+While debugging the release creation error, discovered that the database was rejecting duplicate release versions due to an existing UNIQUE constraint. Since the exception was not being handled, PostgreSQL surfaced a raw database error that resulted in a generic 500 response.
+
+Updated the backend release creation logic to:
+
+- Detect PostgreSQL unique constraint violations
+- Catch error code 23505
+- Return a proper BadRequestException with a clear validation message
+- Prevent duplicate release versions from causing server errors
+
+### Files Changed
+
+- frontend-next/src/lib/api.ts
+- frontend-next/src/app/pm/layout.tsx
+- frontend-next/src/app/pm/releases/page.tsx
+- frontend-next/src/app/pm/releases/new/page.tsx
+- frontend-next/src/app/pm/releases/[id]/page.tsx
+- backend-nest/src/it-workspace/it-workspace.service.ts
+
+### Manual Review
+
+Verified the complete release workflow in the browser:
+
+- Created a release successfully
+- Linked a work item that was ready for release
+- Confirmed the linked item appeared in the What Shipped section
+- Deployed the release successfully
+- Confirmed the release status changed to deployed
+- Confirmed linked work items automatically moved to released status
+- Verified the QA section still displayed the correct passed count after deployment
+- Confirmed duplicate release versions now return a clear validation message instead of a generic Internal Server Error
+
+### Related Commit
