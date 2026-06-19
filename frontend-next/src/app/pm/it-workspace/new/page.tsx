@@ -46,7 +46,7 @@ export default function NewWorkItemPage() {
       </div>
 
       <form className="card" style={{ display: 'grid', gap: 14, maxWidth: 560, margin: 0 }} onSubmit={handleSubmit}>
-        {error && <div className="error">{error}</div>}
+        {error && <div className="card error">{error}</div>}
 
         <div className="field">
           <label htmlFor="title">Title</label>
@@ -65,7 +65,7 @@ export default function NewWorkItemPage() {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div className="stack-row">
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="type">Type</label>
             <select id="type" value={type} onChange={(e) => setType(e.target.value)}>
@@ -89,7 +89,7 @@ export default function NewWorkItemPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div className="stack-row">
           <div className="field" style={{ flex: 1 }}>
             <label htmlFor="assignee">Assignee</label>
             <select id="assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)}>

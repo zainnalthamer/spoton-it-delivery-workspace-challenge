@@ -330,3 +330,156 @@ Verified the complete release workflow in the browser:
 - Confirmed duplicate release versions now return a clear validation message instead of a generic Internal Server Error
 
 ### Related Commit
+6076919 (HEAD -> release-notes, origin/release-notes) Added releases frontend and fixed unhandled duplicate-version error
+
+## 2026-06-19 09:36 - Claude 
+
+### Goal
+
+Replace the in-memory scoring system with a database-backed implementation using the existing score_events table and idempotency rules from Phase 1. Automatically award points for key workflow actions and add comprehensive unit tests covering workflow transitions, QA validation, release rules, and score idempotency.
+
+### Prompt
+
+Updated the scoring system so it persists score events in PostgreSQL rather than memory. The requirement was to use the existing score_events table and unique constraint to guarantee idempotency while keeping the manual score-award endpoint working for compatibility.
+
+Integrated automatic score awards into the core workflow:
+
+- Creating a work item
+- Moving a work item to QA
+- Completing a QA check
+- Moving a work item to Ready for Release
+- Deploying a release
+
+After validating the scoring behavior manually, added unit tests covering workflow transitions, QA readiness rules, release restrictions, deployment behavior, and score idempotency. Tests needed to run entirely against mocked services without requiring a real database connection.
+
+### Output Summary
+
+Reworked the ScoreService to use PostgreSQL-backed score events instead of in-memory storage.
+
+Added a new awardForEntity method that records score events using the existing unique constraint on action, entity type, and entity ID. The implementation uses ON CONFLICT DO NOTHING to ensure duplicate actions never create duplicate score events.
+
+Kept the original manual scoring endpoint unchanged to maintain backwards compatibility.
+
+Integrated automatic scoring into the workflow service:
+
+- Awarded points when a work item is created
+- Awarded points when a work item moves to QA
+- Awarded points when a QA check is completed
+- Awarded points when a work item becomes Ready for Release
+- Awarded points when a release is deployed
+
+Added unit tests for workflow transitions covering:
+
+- All valid forward transitions
+- All invalid transitions
+- Allowed backward transitions
+- Explicit invalid transition examples from the specification
+
+Added service-level tests covering:
+
+- QA readiness validation when no QA checks exist
+- QA readiness validation when only some checks have passed
+- QA readiness validation when all checks have passed
+- Release linking restrictions for non-ready work items
+- Release linking restrictions for already deployed releases
+- Release deployment validation
+- Deployment idempotency
+- QA check scoring idempotency
+- Prevention of duplicate score awards on no-op updates
+
+All tests use a mocked DatabaseService, allowing the full suite to run without any database dependency.
+
+### Files Changed
+
+- backend-nest/src/score/score.service.ts
+- backend-nest/src/it-workspace/it-workspace.service.ts
+- backend-nest/src/it-workspace/it-workspace.controller.ts
+- backend-nest/src/it-workspace/work-item-transitions.spec.ts
+- backend-nest/src/it-workspace/it-workspace.service.spec.ts
+
+### Manual Review
+
+- Verified scoring behavior end-to-end using both curl and the browser.
+- Confirmed creating a work item awards 1 point
+- Confirmed moving a work item to QA awards 1 point
+- Confirmed repeating the same status update does not award additional points
+- Confirmed completing a QA check awards 1 point
+- Confirmed moving a work item to Ready for Release awards 2 points
+- Confirmed deploying a release awards 3 points
+- Confirmed attempting to deploy an already deployed release returns a validation error
+- Confirmed duplicate deployment attempts do not create additional score events
+- Ran the complete unit test suite successfully
+- Verified all 26 tests passed
+
+### Related Commit
+ed65d4e (HEAD -> backend-tests, origin/backend-tests) wired score idempotency into workflow actions and added unit tests
+
+## 2026-06-19 10:12 - Claude 
+
+### Goal
+
+Build the Engineering Timeline creative feature, providing a single chronological view of everything that has happened to a work item, including workflow status changes and QA activity. Reuse the existing work item history data and introduce proper QA history tracking so timeline events remain accurate over time.
+
+### Prompt
+
+Selected Engineering Timeline as the creative feature because the application was already recording work item history but had no way to visualize it.
+
+The requirement was to create a unified timeline that combines workflow events and QA activity into a single chronological feed. During testing, discovered an issue where QA status changes were not being tracked historically. Only the current QA status was stored, meaning if a QA check was marked as passed and later changed back to pending, there was no record that it had ever passed.
+
+Instead of working around the limitation, implemented a proper historical tracking solution using a dedicated QA history table following the same pattern already used for work item status history.
+
+### Output Summary
+
+Added a new qa_check_history table to store all QA status changes over time.
+
+Updated QA check update logic so every QA status change is recorded, including transitions between pending, passed, and any future statuses.
+
+Implemented a new timeline service method that combines multiple event sources into a single timeline:
+
+- Work item status changes
+- QA check creation events
+- QA check status change events
+
+Merged all events into one collection and sorted them chronologically by timestamp.
+
+Added human-readable event descriptions so timeline entries are easy to understand without needing knowledge of database structures.
+
+Created a dedicated API endpoint for retrieving a work item's complete timeline.
+
+Built a timeline section on the work item details page displaying:
+
+- Workflow status changes
+- QA activity
+- User responsible for each action
+- Formatted timestamps
+- Visual event indicators
+
+Added color-coded event markers to make different event types easier to identify:
+
+- Navy for work item status changes
+- Orange for QA-related events
+
+### Files Changed
+
+- backend-nest/src/database/schema.sql
+- backend-nest/src/it-workspace/it-workspace.service.ts
+- backend-nest/src/it-workspace/it-workspace.controller.ts
+- frontend-next/src/lib/api.ts
+- frontend-next/src/app/pm/it-workspace/[id]/page.tsx
+
+### Manual Review
+
+Tested the timeline API using curl against a work item with a complete workflow history.
+
+- Verified status progression events appeared correctly from backlog through released
+- Verified QA check creation events appeared in the timeline
+- Initially identified that QA passed events were missing from historical records
+- Traced the issue to QA status changes not being stored historically
+- Implemented qa_check_history tracking and re-tested
+- Confirmed pending-to-passed transitions now appear correctly with the appropriate user and timestamp
+- Verified timeline events are returned in chronological order
+- Verified the frontend renders timeline entries correctly
+- Confirmed event colors, actor information, and timestamps display as expected on a fresh work item with newly generated history
+
+### Related Commit
+64a3f97 (HEAD -> creative-feature, origin/creative-feature) feat: added engineering timeline feature

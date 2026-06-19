@@ -39,30 +39,32 @@ export default function ReleasesPage() {
 
       {!loading && !error && releases && releases.length > 0 && (
         <div className="card">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Version</th>
-                <th>Status</th>
-                <th>Release Date</th>
-                <th>Summary</th>
-              </tr>
-            </thead>
-            <tbody>
-              {releases.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <Link href={`/pm/releases/${r.id}`}>{r.version}</Link>
-                  </td>
-                  <td>
-                    <span className="badge">{r.deployment_status}</span>
-                  </td>
-                  <td>{r.release_date ? new Date(r.release_date).toLocaleDateString() : '—'}</td>
-                  <td>{r.summary ?? '—'}</td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Version</th>
+                  <th>Status</th>
+                  <th>Release Date</th>
+                  <th>Summary</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {releases.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <Link href={`/pm/releases/${r.id}`}>{r.version}</Link>
+                    </td>
+                    <td>
+                      <span className="badge">{r.deployment_status}</span>
+                    </td>
+                    <td>{r.release_date ? new Date(r.release_date).toLocaleDateString() : '—'}</td>
+                    <td>{r.summary ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>

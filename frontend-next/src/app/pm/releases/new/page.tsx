@@ -40,7 +40,7 @@ export default function NewReleasePage() {
       </div>
 
       <form className="card" style={{ display: 'grid', gap: 14, maxWidth: 480, margin: 0 }} onSubmit={handleSubmit}>
-        {error && <div className="error">{error}</div>}
+        {error && <div className="card error">{error}</div>}
 
         <div className="field">
           <label htmlFor="version">Version</label>

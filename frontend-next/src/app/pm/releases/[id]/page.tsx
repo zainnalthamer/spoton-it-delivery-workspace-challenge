@@ -105,7 +105,7 @@ export default function ReleaseDetailPage() {
       {error && <div className="card error" style={{ marginBottom: 18 }}>{error}</div>}
 
       <div className="card" style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <strong>Status:</strong> <span className="badge">{release?.deployment_status}</span>
           </div>
@@ -121,38 +121,40 @@ export default function ReleaseDetailPage() {
           <p>No work items linked yet.</p>
         )}
         {release?.linkedWorkItems && release.linkedWorkItems.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Status</th>
-                {!isDeployed && <th></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {release.linkedWorkItems.map((w) => (
-                <tr key={w.id}>
-                  <td><Link href={`/pm/it-workspace/${w.id}`}>{w.title}</Link></td>
-                  <td><span className="badge">{w.status}</span></td>
-                  {!isDeployed && (
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => handleUnlink(w.id)}
-                        style={{ border: 0, background: 'none', color: '#b42318', cursor: 'pointer', fontWeight: 700 }}
-                      >
-                        Unlink
-                      </button>
-                    </td>
-                  )}
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Status</th>
+                  {!isDeployed && <th></th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {release.linkedWorkItems.map((w) => (
+                  <tr key={w.id}>
+                    <td><Link href={`/pm/it-workspace/${w.id}`}>{w.title}</Link></td>
+                    <td><span className="badge">{w.status}</span></td>
+                    {!isDeployed && (
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => handleUnlink(w.id)}
+                          style={{ border: 0, background: 'none', color: '#b42318', cursor: 'pointer', fontWeight: 700 }}
+                        >
+                          Unlink
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {!isDeployed && (
-          <form onSubmit={handleLink} style={{ display: 'flex', gap: 10, marginTop: 16, alignItems: 'flex-end' }}>
+          <form onSubmit={handleLink} style={{ display: 'flex', gap: 10, marginTop: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div className="field" style={{ flex: 1 }}>
               <label htmlFor="workItem">Link a ready work item</label>
               <select id="workItem" value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)}>
