@@ -7,6 +7,8 @@ import { UpdateWorkItemDto } from './dto/update-work-item.dto';
 import { QueryWorkItemsDto } from './dto/query-work-items.dto';
 import { CreateQaCheckDto } from './dto/create-qa-check.dto';
 import { UpdateQaCheckDto } from './dto/update-qa-check.dto';
+import { CreateReleaseDto } from './dto/create-release.dto';
+import { UpdateReleaseDto } from './dto/update-release.dto';
 
 @Injectable()
 export class ItWorkspaceService {
@@ -242,5 +244,125 @@ export class ItWorkspaceService {
     await this.getQaCheck(id);
     await this.db.query('DELETE FROM qa_checks WHERE id = $1', [id]);
     return { deleted: true, id };
+  }
+
+  async createRelease(dto: CreateReleaseDto) {
+    const id = generateId('rel');
+    const result = await this.db.query(
+      `INSERT INTO releases (id, version, release_date, summary)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [id, dto.version, dto.releaseDate ?? null, dto.summary ?? null],
+    );
+    return result.rows[0];
+  }
+
+  async listReleases() {
+    const result = await this.db.query(`SELECT * FROM releases ORDER BY created_at DESC`);
+    return result.rows;
+  }
+
+  async getRelease(id: string) {
+    const result = await this.db.query('SELECT * FROM releases WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      throw new NotFoundException(`Release ${id} not found`);
+    }
+    const linked = await this.db.query(
+      `SELECT wi.* FROM work_items wi
+       JOIN release_work_items rwi ON rwi.work_item_id = wi.id
+       WHERE rwi.release_id = $1
+       ORDER BY rwi.linked_at ASC`,
+      [id],
+    );
+    return { ...result.rows[0], linkedWorkItems: linked.rows };
+  }
+
+  async updateRelease(id: string, dto: UpdateReleaseDto) {
+    await this.getRelease(id);
+
+    const fields: string[] = [];
+    const params: any[] = [];
+    const fieldMap: Record<string, any> = {
+      version: dto.version,
+      release_date: dto.releaseDate,
+      summary: dto.summary,
+    };
+    for (const [column, value] of Object.entries(fieldMap)) {
+      if (value !== undefined) {
+        params.push(value);
+        fields.push(`${column} = $${params.length}`);
+      }
+    }
+    if (fields.length === 0) return this.getRelease(id);
+
+    fields.push(`updated_at = now()`);
+    params.push(id);
+    const result = await this.db.query(
+      `UPDATE releases SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
+      params,
+    );
+    return result.rows[0];
+  }
+
+  async linkWorkItem(releaseId: string, workItemId: string) {
+    const release = await this.getRelease(releaseId);
+    if (release.deployment_status === 'deployed') {
+      throw new BadRequestException('Cannot link work items to a release that has already been deployed');
+    }
+
+    const workItem = await this.getWorkItem(workItemId);
+    if (workItem.status !== 'ready_for_release') {
+      throw new BadRequestException(
+        `Only work items with status 'ready_for_release' can be linked to a release (this item is '${workItem.status}')`,
+      );
+    }
+
+    await this.db.query(
+      `INSERT INTO release_work_items (release_id, work_item_id)
+       VALUES ($1, $2)
+       ON CONFLICT (release_id, work_item_id) DO NOTHING`,
+      [releaseId, workItemId],
+    );
+    return this.getRelease(releaseId);
+  }
+
+  async unlinkWorkItem(releaseId: string, workItemId: string) {
+    await this.getRelease(releaseId);
+    await this.db.query(
+      `DELETE FROM release_work_items WHERE release_id = $1 AND work_item_id = $2`,
+      [releaseId, workItemId],
+    );
+    return this.getRelease(releaseId);
+  }
+
+  async deployRelease(id: string, deployedBy: string) {
+    const release = await this.getRelease(id);
+
+    if (release.deployment_status === 'deployed') {
+      throw new BadRequestException('This release has already been deployed');
+    }
+
+    if (release.linkedWorkItems.length === 0) {
+      throw new BadRequestException('Cannot deploy a release with no linked work items');
+    }
+
+    await this.db.query(
+      `UPDATE releases SET deployment_status = 'deployed', updated_at = now() WHERE id = $1`,
+      [id],
+    );
+
+    for (const item of release.linkedWorkItems) {
+      await this.db.query(
+        `UPDATE work_items SET status = 'released', updated_at = now() WHERE id = $1`,
+        [item.id],
+      );
+      await this.db.query(
+        `INSERT INTO work_item_history (id, work_item_id, from_status, to_status, changed_by)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [generateId('wih'), item.id, item.status, 'released', deployedBy],
+      );
+    }
+
+    return this.getRelease(id);
   }
 }
