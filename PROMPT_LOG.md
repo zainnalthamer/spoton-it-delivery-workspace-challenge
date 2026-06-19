@@ -165,3 +165,46 @@ Verified the workflow using manual API testing with curl.
 - Confirmed in the browser that the status dropdown only displays valid transition options based on the work item's current state.
 
 ### Related Commit
+f63baf9 (HEAD -> work-items, origin/work-items) enforced work item status transitions and added history logs
+
+## 2026-06-19 19:17 - Claude 
+
+### Goal
+
+Implement QA Checks CRUD linked to work items and enforce the business rule that a work item can only move to ready_for_release when it has at least one QA check and all QA checks have passed. Add a QA management section to the work item details page in the frontend.
+
+### Prompt
+
+- Built QA Checks CRUD functionality nested under work items, including creating checks, listing checks, updating results and statuses, and deleting checks. 
+- Added a readiness validation layer on top of the existing workflow transition rules so that moving a work item to ready_for_release is blocked when there are no QA checks or when any QA checks are still pending or failed.
+- Manually tested the workflow using curl by attempting the transition with no QA checks, with incomplete QA checks, and after marking all checks as passed.
+- After confirming the backend logic, implemented the frontend QA section within the work item details page. The goal was to provide a simple way to manage QA checks directly from the UI, including adding new checks, updating statuses, viewing progress, and removing checks.
+
+### Output Summary
+
+- Added dedicated DTOs for creating and updating QA checks.
+- Extended the workspace service with full QA check CRUD operations and introduced an isQaReady() helper responsible for validating whether a work item satisfies the release requirements.
+- Integrated QA readiness validation into updateWorkItem() so any attempt to move a work item to ready_for_release is checked before the update occurs. The API returns specific messages depending on the situation, such as when no QA checks exist or when only some checks have passed.
+- Added new controller routes for managing QA checks under individual work items and for updating or deleting specific checks.
+- On the frontend, added QA check types and API methods, then created a dedicated QA section on the work item details page. The section includes an add-check form, editable status dropdowns for each check, a live passed/total progress indicator, and delete actions.
+
+### Files Changed
+
+- backend-nest/src/it-workspace/dto/create-qa-check.dto.ts
+- backend-nest/src/it-workspace/dto/update-qa-check.dto.ts
+- backend-nest/src/it-workspace/it-workspace.service.ts
+- backend-nest/src/it-workspace/it-workspace.controller.ts
+- frontend-next/src/lib/api.ts
+- frontend-next/src/app/pm/it-workspace/[id]/page.tsx
+
+### Manual Review
+
+- Tested the release readiness workflow against a real work item using curl.
+- Confirmed that moving to ready_for_release is blocked when no QA checks exist.
+- Confirmed that having a pending QA check still prevents the transition.
+- Confirmed that once all QA checks are marked as passed, the transition succeeds.
+- Verified that creating, updating, and deleting QA checks works correctly through the frontend.
+- Verified that the passed/total progress badge updates immediately when check statuses change.
+- Confirmed that backend validation messages are displayed correctly in the UI when release requirements have not been met.
+
+### Related Commit

@@ -29,6 +29,34 @@ export type WorkItem = {
   updated_at: string;
 };
 
+export type QaCheck = {
+  id: string;
+  work_item_id: string;
+  test_title: string;
+  expected_result: string;
+  actual_result: string | null;
+  status: string;
+  tester: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateQaCheckInput = {
+  testTitle: string;
+  expectedResult: string;
+  tester?: string;
+};
+
+export type UpdateQaCheckInput = Partial<{
+  testTitle: string;
+  expectedResult: string;
+  actualResult: string;
+  status: string;
+  tester: string;
+  notes: string;
+}>;
+
 export type WorkItemFilters = {
   status?: string;
   priority?: string;
@@ -91,6 +119,7 @@ function buildQuery(filters: WorkItemFilters): string {
 }
 
 export const api = {
+
   login: (email: string, password: string) =>
     request<LoginResponse>('/auth/login', {
       method: 'POST',
@@ -115,6 +144,22 @@ export const api = {
     }),
   deleteWorkItem: (id: string) =>
     request<{ deleted: boolean; id: string }>(`/it-workspace/work-items/${id}`, {
+      method: 'DELETE',
+    }),
+  qaChecks: (workItemId: string) =>
+    request<QaCheck[]>(`/it-workspace/work-items/${workItemId}/qa-checks`),
+  createQaCheck: (workItemId: string, input: CreateQaCheckInput) =>
+    request<QaCheck>(`/it-workspace/work-items/${workItemId}/qa-checks`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateQaCheck: (id: string, input: UpdateQaCheckInput) =>
+    request<QaCheck>(`/it-workspace/qa-checks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  deleteQaCheck: (id: string) =>
+    request<{ deleted: boolean; id: string }>(`/it-workspace/qa-checks/${id}`, {
       method: 'DELETE',
     }),
 };

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   api,
   WorkItem,
+  QaCheck,
   WORK_ITEM_TYPES,
   WORK_ITEM_PRIORITIES,
   WORK_ITEM_STATUSES,
@@ -31,6 +32,13 @@ export default function WorkItemDetailPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [qaChecks, setQaChecks] = useState<QaCheck[]>([]);
+  const [qaLoading, setQaLoading] = useState(true);
+  const [qaError, setQaError] = useState('');
+  const [newTestTitle, setNewTestTitle] = useState('');
+  const [newExpectedResult, setNewExpectedResult] = useState('');
+  const [addingQa, setAddingQa] = useState(false);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -61,7 +69,18 @@ export default function WorkItemDetailPage() {
 
   useEffect(() => {
     load();
+    loadQaChecks();
   }, [id]);
+
+  function loadQaChecks() {
+    setQaLoading(true);
+    setQaError('');
+    api
+      .qaChecks(id)
+      .then(setQaChecks)
+      .catch((err) => setQaError(err instanceof Error ? err.message : 'Failed to load QA checks'))
+      .finally(() => setQaLoading(false));
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +114,43 @@ export default function WorkItemDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete work item');
       setDeleting(false);
+    }
+  }
+
+  async function handleAddQaCheck(e: React.FormEvent) {
+    e.preventDefault();
+    setQaError('');
+    setAddingQa(true);
+    try {
+      await api.createQaCheck(id, { testTitle: newTestTitle, expectedResult: newExpectedResult });
+      setNewTestTitle('');
+      setNewExpectedResult('');
+      loadQaChecks();
+    } catch (err) {
+      setQaError(err instanceof Error ? err.message : 'Failed to add QA check');
+    } finally {
+      setAddingQa(false);
+    }
+  }
+
+  async function handleQaStatusChange(qaId: string, newStatus: string) {
+    setQaError('');
+    try {
+      await api.updateQaCheck(qaId, { status: newStatus });
+      loadQaChecks();
+    } catch (err) {
+      setQaError(err instanceof Error ? err.message : 'Failed to update QA check');
+    }
+  }
+
+  async function handleDeleteQaCheck(qaId: string) {
+    if (!confirm('Delete this QA check?')) return;
+    setQaError('');
+    try {
+      await api.deleteQaCheck(qaId);
+      loadQaChecks();
+    } catch (err) {
+      setQaError(err instanceof Error ? err.message : 'Failed to delete QA check');
     }
   }
 
@@ -214,6 +270,116 @@ export default function WorkItemDetailPage() {
           </button>
         </div>
       </form>
+
+      <section className="card" style={{ marginTop: 20, display: 'grid', gap: 16, maxWidth: 760 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <h2 style={{ margin: 0 }}>QA Checks</h2>
+          <div style={{ color: 'var(--muted)' }}>
+            {qaChecks.filter((q) => q.status === 'passed').length}/{qaChecks.length} passed
+          </div>
+        </div>
+
+        {qaError && <div className="card error">{qaError}</div>}
+
+        {qaLoading && <p style={{ margin: 0 }}>Loading QA checks...</p>}
+
+        {!qaLoading && qaChecks.length === 0 && (
+          <p style={{ margin: 0, color: 'var(--muted)' }}>
+            No QA checks yet. This work item cannot be marked ready for release until at least one check passes.
+          </p>
+        )}
+
+        {!qaLoading && qaChecks.length > 0 && (
+          <div style={{ display: 'grid', gap: 12 }}>
+            {qaChecks.map((qa) => (
+              <div
+                key={qa.id}
+                style={{
+                  border: '1px solid var(--line)',
+                  borderRadius: 10,
+                  padding: 14,
+                  display: 'grid',
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div>
+                    <strong>{qa.test_title}</strong>
+                    <p style={{ margin: '6px 0 0', color: 'var(--muted)' }}>{qa.expected_result}</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteQaCheck(qa.id)}
+                    style={{ border: 0, background: 'none', color: '#b42318', cursor: 'pointer', fontWeight: 700 }}
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor={`qa-status-${qa.id}`}>Status</label>
+                  <select
+                    id={`qa-status-${qa.id}`}
+                    value={qa.status}
+                    onChange={(e) => handleQaStatusChange(qa.id, e.target.value)}
+                  >
+                    <option value="pending">pending</option>
+                    <option value="passed">passed</option>
+                    <option value="failed">failed</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleAddQaCheck} style={{ display: 'grid', gap: 12 }}>
+          <div className="field">
+            <label htmlFor="newTestTitle">New test title</label>
+            <input
+              id="newTestTitle"
+              value={newTestTitle}
+              onChange={(e) => setNewTestTitle(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="newExpectedResult">Expected result</label>
+            <textarea
+              id="newExpectedResult"
+              value={newExpectedResult}
+              onChange={(e) => setNewExpectedResult(e.target.value)}
+              required
+              rows={3}
+              style={{ border: '1px solid var(--line)', borderRadius: 8, padding: 12 }}
+            />
+          </div>
+
+          <div>
+            <button className="button" type="submit" disabled={addingQa}>
+              {addingQa ? 'Adding...' : 'Add QA Check'}
+            </button>
+          </div>
+        </form>
+      </section>
     </section>
   );
 }
