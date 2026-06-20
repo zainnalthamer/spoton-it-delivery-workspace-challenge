@@ -1,46 +1,105 @@
 # AI Usage
 
-Use this file to explain how you used AI tools during the challenge.
+This document explains how AI tools were used throughout the challenge.
 
 ## Tools Used
 
 | Tool | Used? | Notes |
-| --- | --- | --- |
-| ChatGPT | Yes | Used alongside Claude for debugging — troubleshooting errors and unexpected behavior encountered while building. |
-| Claude | Yes | Primary tool, used throughout via Claude.ai chat — architecture, code generation, debugging, and review for the entire project. |
+|-------|--------|-------|
+| ChatGPT | Yes | Used mainly for debugging, troubleshooting errors, and getting a second opinion when something wasn't working as expected. |
+| Claude | Yes | The primary AI tool used throughout the project for planning, implementation, debugging, and code review. |
 | Codex | No | |
 | Cursor | No | |
 | Other | No | |
 
 ## Summary
 
-AI was used as a pairing partner for the entire project. Claude was the primary tool — used for planning the approach, writing most of the backend and frontend code, and walking through debugging step by step. ChatGPT was also used fairly regularly alongside Claude for debugging specific errors and unexpected behavior. I made the final calls on product/scope decisions (e.g. how to handle the single-user auth limitation, which creative feature to build, when to add tests vs. move on), ran every command myself, and tested every feature manually via curl and the browser before accepting it as working. Several real bugs were caught specifically because I tested results instead of assuming AI-generated code was correct on first pass.
+AI was used throughout the project as a development assistant and sounding board. Claude was the main tool I relied on for planning the system architecture, generating code, reviewing implementations, and helping work through bugs. ChatGPT was also used regularly when debugging issues or validating solutions from a different perspective.
+
+Although AI helped generate a large portion of the code, all decisions about scope, implementation details, and tradeoffs were made by me. I ran every command myself, manually tested every feature, reviewed all generated code before keeping it, and made adjustments whenever something didn't fit the requirements. Several bugs and design issues were only discovered because I tested the application thoroughly instead of assuming the generated code was correct.
 
 ## Main Areas AI Helped With
 
-- **Architecture:** Database schema design (6 tables, relationships, constraints), API endpoint structure, and the overall phase-by-phase build plan.
-- **Backend:** DTOs, services, controllers for Work Items, QA Checks, and Releases; the status state machine; the QA readiness gate; release linking/deployment rules; score idempotency using a unique database constraint.
-- **Frontend:** All Next.js pages (list/create/detail views for Work Items and Releases), the API client, and the Engineering Timeline UI.
-- **Database:** Schema design, idempotent schema application on startup (no migration tool was installed in the starter, so a custom startup-time approach was used instead).
-- **Tests:** Unit tests for the transition state machine and the service's business rules (QA gate, release rules, score idempotency), using a mocked database so no live connection is required to run them.
-- **Debugging:** A project-breaking build issue caused by the repo sitting inside a OneDrive-synced folder, a missing-asset build config issue, and several real application bugs (see below). ChatGPT was also used for general debugging help alongside Claude.
-- **Documentation:** Drafting AI_USAGE.md, DECISIONS.md, and PROMPT_LOG.md entries based on the actual work done.
+### Architecture
 
-## What You Reviewed Manually
+- Designing the database schema, including tables, relationships, and constraints
+- Planning the API structure
+- Breaking the project into manageable implementation phases
 
-- Ran every single backend endpoint manually via curl after it was written, including deliberately testing invalid inputs (bad enums, missing fields, nonexistent IDs, invalid state transitions) to confirm error handling actually worked, not just the happy path.
-- Verified the QA readiness gate by manually walking a work item through zero QA checks, then a pending check, then a passed check, confirming the release-readiness transition was blocked or allowed correctly at each stage.
-- Verified the release linking and deployment cascade end to end, including deliberately trying to link a non-ready item and deploy an already-deployed release to confirm both were rejected.
-- Verified score idempotency by checking the score total before and after a deploy, then attempting the same deploy again and confirming the total did not change.
-- Reviewed every git diff before committing and kept `.env` out of version control.
-- Ran the full test suite (`npm test`) and read the actual output rather than assuming it passed.
+### Backend
+
+- Generating DTOs, services, and controllers
+- Implementing Work Item, QA Check, and Release functionality
+- Building the status transition logic
+- Implementing QA readiness validation
+- Creating release linking and deployment rules
+- Implementing score idempotency through database constraints
+
+### Frontend
+
+- Building the Next.js pages
+- Creating list, create, and detail views
+- Implementing the API client
+- Developing the Engineering Timeline feature
+
+### Database
+
+- Designing the schema
+- Creating startup-time schema initialization since the starter project did not include a migration system
+
+### Testing
+
+- Writing unit tests for business rules and status transitions
+- Creating mocked database tests so the test suite could run without a live database connection
+
+### Debugging
+
+- Troubleshooting build issues caused by storing the project inside a OneDrive-synced directory
+- Fixing configuration problems related to missing assets
+- Investigating and resolving application bugs found during testing
+- Using both Claude and ChatGPT to compare approaches when debugging difficult issues
+
+### Documentation
+
+- Assisting with drafts of AI_USAGE.md, DECISIONS.md, and PROMPT_LOG.md
+- Helping organize technical explanations and project notes
+
+## What I Reviewed Manually
+
+- Tested every backend endpoint manually using curl after implementation
+- Tested invalid inputs, missing fields, invalid enum values, nonexistent IDs, and invalid state transitions to verify error handling
+- Verified the QA readiness workflow by moving work items through different QA states and confirming transitions were correctly blocked or allowed
+- Tested release linking and deployment scenarios, including invalid cases that should be rejected
+- Verified score idempotency by checking scores before and after deployment attempts and confirming duplicate deployments did not affect totals
+- Reviewed all git changes before committing
+- Ensured `.env` files were never committed to version control
+- Ran the full test suite and reviewed the results rather than assuming everything passed
 
 ## What AI Got Wrong
 
-- **Silently dropped field on update:** an early version of the work item update DTO didn't declare a `status` field, so NestJS's whitelist validation silently stripped `status` out of PATCH requests. The API returned a 200 with no error, but the status never actually changed. This was only caught because I tested the response body carefully instead of just checking the status code.
-- **Unhandled database error surfaced as a raw 500:** creating a release with a duplicate version (a `UNIQUE` constraint violation) crashed with a generic "Internal server error" instead of a clean message, because the create-release code path wasn't wrapped in a try/catch for that specific case. Caught while testing the frontend, not predicted in advance.
-- **Incomplete data model for a feature, caught during the creative feature build:** the Engineering Timeline initially tried to infer "QA check passed" events from the QA check's `created_at`/`updated_at` timestamps instead of an actual history log, which meant a QA check that was marked passed and later reverted to pending would show no historical record of ever having passed. This required adding a proper `qa_check_history` table mid-feature rather than relying on the original (incorrect) assumption that current state was enough.
-- **Suggested file path that didn't match the project's actual conventions:** early in setup, AI suggested creating a new `.env.example` inside `backend-nest/`, without first checking that one already existed at the project root using a different variable naming convention (`DATABASE_URL` vs. separate host/port/user vars). This was caught before any code was written, by asking why the file was being duplicated rather than assuming it was correct.
+### Status Updates Were Being Silently Ignored
+
+An early version of the Work Item update DTO did not include the `status` field. Because NestJS validation was configured to whitelist properties, the field was silently removed from PATCH requests. The API returned a successful response, but the status never actually changed.
+
+This issue was only discovered because I carefully checked the returned data instead of only looking at the HTTP status code.
+
+### Duplicate Release Versions Returned a Generic Error
+
+Creating a release with a duplicate version triggered a database `UNIQUE` constraint violation. The error was not handled properly, resulting in a generic internal server error rather than a meaningful validation message.
+
+This problem was discovered during frontend testing.
+
+### Timeline History Was Missing Important Events
+
+The first implementation of the Engineering Timeline attempted to infer historical QA events using the current QA check timestamps. This approach failed when a QA check changed state multiple times because previous transitions were lost.
+
+After discovering the limitation, I introduced a dedicated `qa_check_history` table to preserve the complete event history.
+
+### Incorrect Environment File Recommendation
+
+Early in development, AI suggested creating a new `.env.example` file inside the backend folder without recognizing that one already existed at the project root.
+
+The existing configuration also used a different variable format, so blindly following the suggestion would have created unnecessary duplication. This was caught before implementation.
 
 ## Commands Run
 
@@ -55,11 +114,12 @@ npm test
 
 ## Known Limitations
 
-- Only one user can log in (matches the starter's auth setup); assignee/tester fields are free text rather than tied to real user accounts.
-- Tests are unit tests against a mocked database, not full integration tests against a live Postgres instance.
-- No pagination on work item or release lists.
-- The `rolled_back` deployment status exists in the schema but has no UI or logic wired to it yet.
-- The Engineering Timeline currently covers status changes and QA activity, but not release linking/deployment events.
+- Authentication supports only a single user because that matches the starter project's setup
+- Assignee and tester fields are free-text values rather than references to user accounts
+- Tests focus on business logic and use a mocked database instead of a live PostgreSQL instance
+- Work Item and Release lists do not currently support pagination
+- The `rolled_back` deployment status exists in the schema but is not yet connected to any application logic or UI
+- The Engineering Timeline currently tracks status changes and QA activity but does not yet include release linking or deployment events
 
 ## Prompt Log
 
